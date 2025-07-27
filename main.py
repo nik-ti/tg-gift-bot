@@ -1,16 +1,19 @@
 import asyncio
 import traceback
+import os
 
 from pyrogram import Client
 
 from app.core.banner import display_title, get_app_info, set_window_title
-from app.core.callbacks import process_gift
-from app.notifications import send_start_message
-from app.utils.detector import gift_monitoring
+from app.core.multi_user_manager import MultiUserManager
+from app.telegram.handlers import setup_handlers
+from app.database import AuthManager
 from app.utils.logger import info, error
 from data.config import config, t, get_language_display
 
 app_info = get_app_info()
+multi_user_manager = MultiUserManager()
+auth_manager = AuthManager()
 
 
 class Application:
@@ -19,17 +22,41 @@ class Application:
         set_window_title(app_info)
         display_title(app_info, get_language_display(config.LANGUAGE))
 
-        async with Client(
+        # Create main bot client for handling Telegram commands
+        main_bot = Client(
                 name=config.SESSION,
                 api_id=config.API_ID,
                 api_hash=config.API_HASH,
                 phone_number=config.PHONE_NUMBER
-        ) as client:
-            await send_start_message(client)
-            await gift_monitoring(client, process_gift)
+        )
+        
+        # Setup Telegram command handlers
+        setup_handlers(main_bot)
+        
+        async with main_bot:
+            info("Main bot started - ready to accept commands")
+            
+            # Start all active user bots
+            await multi_user_manager.start_all_active_users()
+            
+            # Keep the main bot running
+            try:
+                await asyncio.Event().wait()  # Run indefinitely
+            except asyncio.CancelledError:
+                info("Shutting down...")
+                await multi_user_manager.stop_all_users()
 
     @staticmethod
     def main() -> None:
+        # Check for required environment variables
+        required_env_vars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            error(f"Missing required environment variables: {', '.join(missing_vars)}")
+            error("Please set up Supabase connection first.")
+            return
+        
         try:
             asyncio.run(Application.run())
         except KeyboardInterrupt:

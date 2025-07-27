@@ -2,20 +2,22 @@
 
 <img src="https://github.com/user-attachments/assets/40f64ac9-ff84-4b31-85fd-b6ab01116bdb" alt="Program Preview" width="100%" />
 
-Automated Telegram userbot for purchasing gifts with smart prioritization, multiple recipients, and intelligent balance
-management.
+**Multi-User Telegram Gifts Buyer Bot** - A scalable service that allows multiple users to configure and run their own automated gift purchasing bots through a simple Telegram interface.
 
 > 🌐 [Русская версия](README-RU.md)
 
 ## ✨ Features
 
-- **🤖 Automated Monitoring**: Continuously scans for new gifts matching your criteria
-- **🎯 Smart Prioritization**: Prioritizes rare gifts (low supply) within your price ranges
-- **👥 Multi-Recipient**: Send different quantities to multiple users/channels per price range
+- **👥 Multi-User Support**: Multiple users can configure and run their own bots
+- **💬 Telegram Interface**: Complete setup and management through Telegram commands
+- **🔐 User Authorization**: Admin-controlled access with user management
+- **🤖 Individual Bot Instances**: Each user gets their own monitoring and purchasing bot
+- **⚙️ Per-User Configuration**: Individual settings for price ranges, recipients, and preferences
+- **🎯 Smart Prioritization**: Prioritizes rare gifts (low supply) within price ranges
 - **💰 Balance Management**: Makes partial purchases when balance is insufficient
-- **📊 Detailed Notifications**: Purchase confirmations, balance alerts, and processing summaries
-- **🔧 Flexible Setup**: Simple configuration format for price ranges and recipients
+- **📊 Real-time Notifications**: Purchase confirmations and processing summaries
 - **🌍 Multi-Language**: English and Russian interface
+- **☁️ Database Storage**: User configurations stored in Supabase
 
 ## 🚀 Installation
 
@@ -25,7 +27,15 @@ cd Gifts-Buyer
 pip install -r requirements.txt
 ```
 
-Edit `config.ini` with your settings and run:
+## 🗄️ Database Setup
+
+This bot uses Supabase for storing user configurations. You need to:
+
+1. Create a Supabase project at https://supabase.com
+2. Copy `.env.example` to `.env` and fill in your Supabase credentials
+3. Run the database migrations (tables will be created automatically)
+
+Edit `config.ini` with your main bot settings and run:
 
 ```bash
 python main.py
@@ -57,7 +67,7 @@ Follow the prompts to complete Telegram authorization. Your session will be save
 docker compose up -d
 ```
 
-The bot will start using the saved session and configuration from `config.ini`.
+The bot will start using the saved session and configuration.
 
 ### 4. Stop the bot (when needed)
 
@@ -67,54 +77,62 @@ docker compose down
 
 ## ⚙️ Configuration
 
-### Basic Settings
+### Main Bot Settings (config.ini)
+
+The `config.ini` now only contains settings for the main bot that handles Telegram commands:
 
 ```ini
 [Telegram]
-API_ID = your_api_id                   # From https://my.telegram.org/apps
-API_HASH = your_api_hash               # From https://my.telegram.org/apps
-PHONE_NUMBER = +1234567890             # Your phone number
-CHANNEL_ID = -100xxxxxxxxx             # Notifications channel (-100 to disable)
+API_ID = your_main_bot_api_id          # From https://my.telegram.org/apps
+API_HASH = your_main_bot_api_hash      # From https://my.telegram.org/apps  
+PHONE_NUMBER = +1234567890             # Main bot phone number
 
 [Bot]
-INTERVAL = 10                          # Check interval in seconds
-LANGUAGE = EN                          # Interface language (EN/RU)
-
-[Gifts]
-# Format: price_range: supply_limit x quantity: recipients
-GIFT_RANGES = 1-1000: 500000 x 1: @user1, 123456; 1001-5000: 100000 x 2: @channel
-
-PURCHASE_ONLY_UPGRADABLE_GIFTS = False # Buy only upgradable gifts
-PRIORITIZE_LOW_SUPPLY = True           # Prioritize rare gifts
+LANGUAGE = EN                          # Main bot interface language (EN/RU)
 ```
 
-### Gift Ranges Format
+### User Configuration via Telegram
 
-**Format**: multiple ranges separated by `;`  
-Each range: `min_price-max_price: supply_limit x quantity: recipients`
+Users configure their individual bots through Telegram commands:
+
+## 📱 Telegram Commands
+
+### For Users:
+- `/start` - Welcome message and available commands
+- `/setup` - Configure your gift buying bot (guided setup)
+- `/settings` - View your current configuration
+- `/start_bot` - Start your gift buying bot
+- `/stop` - Stop your gift buying bot
+
+### For Admins:
+- `/admin_users` - List all authorized users
+- `/admin_add user_id [username] [admin:true/false]` - Add authorized user
+- `/admin_remove user_id` - Remove authorized user
+
+## 🔧 Setup Process
+
+1. **Admin Setup**: Add authorized users using admin commands
+2. **User Setup**: Authorized users run `/setup` to configure their bot:
+   - API ID and API Hash (from https://my.telegram.org/apps)
+   - Phone number
+   - Notification channel
+   - Check interval
+   - Language preference
+   - Gift ranges (price ranges, supply limits, quantities, recipients)
+   - Additional options (upgradable only, prioritize low supply)
+3. **Start Bot**: Users run `/start_bot` to activate their gift buying bot
+
+## 🎯 Gift Ranges Format
+
+During setup, users define gift ranges in this format:
+`min_price-max_price:supply_limit:quantity:recipients`
 
 **Examples**:
+- `1-1000:500000:1:@johndoe,123456789` - Cheap gifts, 1 copy each
+- `1001-5000:100000:2:@channel,@user` - Mid-range, 2 copies each  
+- `5001-50000:50000:5:987654321` - Expensive gifts, 5 copies
 
-- `1-1000: 500000 x 1: @johndoe, 123456789` - Cheap gifts, 1 copy each
-- `1001-5000: 100000 x 2: @channel, @user` - Mid-range, 2 copies each
-- `5001-50000: 50000 x 5: 987654321` - Expensive gifts, 5 copies
-
-**As a result**:  
-`GIFT_RANGES = 1-1000: 500000 x 1: @johndoe, 123456789; 1001-5000: 100000 x 2: @channel, @user; 5001-50000: 50000 x 5: 987654321`
-
-**Recipients can be**:
-
-- Usernames: `@username`
-- User IDs: `123456789`
-- Channel names: `@channelname`
-
-### How It Works
-
-1. **Monitoring**: Bot checks for new gifts every `INTERVAL` seconds
-2. **Filtering**: Only processes gifts matching your price ranges and supply limits
-3. **Prioritization**: If `PRIORITIZE_LOW_SUPPLY = True`, processes rarest gifts first
-4. **Purchasing**: Buys specified quantity for each recipient in the range
-5. **Balance Check**: Makes partial purchases if balance is insufficient
+Multiple ranges separated by semicolons (`;`)
 
 ## 💰 Smart Balance Management
 
@@ -129,11 +147,12 @@ Example:
 
 ## 📝 Tips
 
-- Keep balance 2-3x higher than your most expensive range
-- Use multiple ranges for different strategies
-- Enable notifications to monitor activity
-- Test with small ranges first
-- Run on VPS for 24/7 operation
+- **For Admins**: Carefully manage authorized users to prevent abuse
+- **For Users**: Keep balance 2-3x higher than your most expensive range
+- **Setup**: Test with small ranges first before scaling up
+- **Monitoring**: Enable notifications to track bot activity
+- **Hosting**: Run on VPS for 24/7 operation
+- **Security**: Each user's session and data are isolated
 
 ---
 

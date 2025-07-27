@@ -7,7 +7,8 @@ from pyrogram import Client, types
 
 from app.notifications import send_summary_message
 from app.utils.logger import log_same_line, info
-from data.config import config, t
+from data.config import t
+from app.core.user_config import UserConfig
 
 
 class GiftDetector:
@@ -34,16 +35,16 @@ class GiftDetector:
         return gifts_dict, list(gifts_dict.keys())
 
     @staticmethod
-    def categorize_skipped_gifts(gift_data: Dict[str, Any]) -> Dict[str, int]:
+    def categorize_skipped_gifts(gift_data: Dict[str, Any], user_config: UserConfig) -> Dict[str, int]:
         skip_rules = {
             'sold_out_count': gift_data.get("is_sold_out", False),
             'non_limited_count': not gift_data.get("is_limited"),
-            'non_upgradable_count': config.PURCHASE_ONLY_UPGRADABLE_GIFTS and "upgrade_price" not in gift_data
+            'non_upgradable_count': user_config.purchase_only_upgradable_gifts and "upgrade_price" not in gift_data
         }
         return {key: 1 if condition else 0 for key, condition in skip_rules.items()}
 
     @staticmethod
-    def prioritize_gifts(gifts: Dict[int, dict], gift_ids: List[int]) -> List[Tuple[int, dict]]:
+    def prioritize_gifts(gifts: Dict[int, dict], gift_ids: List[int], user_config: UserConfig) -> List[Tuple[int, dict]]:
         for gift_id, gift_data in gifts.items():
             gift_data["position"] = len(gift_ids) - gift_ids.index(gift_id)
 
@@ -52,7 +53,7 @@ class GiftDetector:
         return sorted(sorted_gifts, key=lambda x: (
             x[1].get("total_amount", float('inf')) if x[1].get("is_limited", False) else float('inf'),
             x[1]["position"]
-        )) if config.PRIORITIZE_LOW_SUPPLY else sorted_gifts
+        )) if user_config.prioritize_low_supply else sorted_gifts
 
 
 class GiftMonitor:
@@ -75,24 +76,35 @@ class GiftMonitor:
                 if gift_id not in old_gifts
             }
 
-            new_gifts and await GiftMonitor._process_new_gifts(app, new_gifts, gift_ids, callback)
+            # Extract user_config from callback if it's a wrapped function
+            user_config = getattr(callback, '__self__', None)
+            if hasattr(callback, '__wrapped__'):
+                user_config = callback.__wrapped__.__self__
+            
+            new_gifts and await GiftMonitor._process_new_gifts(app, new_gifts, gift_ids, callback, user_config)
 
             await GiftDetector.save_gift_history(list(current_gifts.values()))
-            await asyncio.sleep(config.INTERVAL)
+            # Use a default interval if user_config is not available
+            interval = user_config.interval if user_config else 15.0
+            await asyncio.sleep(interval)
 
     @staticmethod
     async def _process_new_gifts(app: Client, new_gifts: Dict[int, dict],
-                                 gift_ids: List[int], callback: Callable) -> None:
+                                 gift_ids: List[int], callback: Callable, user_config: UserConfig = None) -> None:
         info(f'{t("console.new_gifts")} {len(new_gifts)}')
 
         skip_counts = {'sold_out_count': 0, 'non_limited_count': 0, 'non_upgradable_count': 0}
 
-        for gift_data in new_gifts.values():
-            gift_skips = GiftDetector.categorize_skipped_gifts(gift_data)
-            for key, value in gift_skips.items():
-                skip_counts[key] += value
+        if user_config:
+            for gift_data in new_gifts.values():
+                gift_skips = GiftDetector.categorize_skipped_gifts(gift_data, user_config)
+                for key, value in gift_skips.items():
+                    skip_counts[key] += value
 
-        prioritized_gifts = GiftDetector.prioritize_gifts(new_gifts, gift_ids)
+            prioritized_gifts = GiftDetector.prioritize_gifts(new_gifts, gift_ids, user_config)
+        else:
+            # Fallback for cases where user_config is not available
+            prioritized_gifts = list(new_gifts.items())
 
         for gift_id, gift_data in prioritized_gifts:
             gift_data['id'] = gift_id
@@ -100,10 +112,11 @@ class GiftMonitor:
 
         await send_summary_message(app, **skip_counts)
 
-        any(skip_counts.values()) and info(t("console.skip_summary",
-                                             sold_out=skip_counts['sold_out_count'],
-                                             non_limited=skip_counts['non_limited_count'],
-                                             non_upgradable=skip_counts['non_upgradable_count']))
+        if any(skip_counts.values()):
+            info(t("console.skip_summary",
+                   sold_out=skip_counts['sold_out_count'],
+                   non_limited=skip_counts['non_limited_count'],
+                   non_upgradable=skip_counts['non_upgradable_count']))
 
 
 gift_monitoring = GiftMonitor.run_detection_loop

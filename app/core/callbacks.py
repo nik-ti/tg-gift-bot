@@ -6,12 +6,13 @@ from pyrogram import Client
 from app.notifications import send_notification
 from app.purchase import buy_gift
 from app.utils.logger import warn, info
-from data.config import config, t
+from data.config import t
+from app.core.user_config import UserConfig
 
 
 class GiftProcessor:
     @staticmethod
-    async def evaluate_gift(gift_data: Dict[str, Any]) -> tuple[bool, Dict[str, Any]]:
+    async def evaluate_gift(gift_data: Dict[str, Any], user_config: UserConfig) -> tuple[bool, Dict[str, Any]]:
         gift_price = gift_data.get("price", 0)
         is_limited = gift_data.get("is_limited", False)
         is_sold_out = gift_data.get("is_sold_out", False)
@@ -21,17 +22,17 @@ class GiftProcessor:
         exclusion_rules = {
             'sold_out': lambda: is_sold_out,
             'non_limited_blocked': lambda: not is_limited,
-            'non_upgradable_blocked': lambda: config.PURCHASE_ONLY_UPGRADABLE_GIFTS and not is_upgradable
+            'non_upgradable_blocked': lambda: user_config.purchase_only_upgradable_gifts and not is_upgradable
         }
 
         failed_rule = next((rule for rule, condition in exclusion_rules.items() if condition()), None)
 
         return (False, {'exclusion_reason': failed_rule}) if failed_rule else \
-            GiftProcessor._evaluate_range_match(gift_price, total_amount)
+            GiftProcessor._evaluate_range_match(gift_price, total_amount, user_config)
 
     @staticmethod
-    def _evaluate_range_match(gift_price: int, total_amount: int) -> tuple[bool, Dict[str, Any]]:
-        range_matched, quantity, recipients = config.get_matching_range(gift_price, total_amount)
+    def _evaluate_range_match(gift_price: int, total_amount: int, user_config: UserConfig) -> tuple[bool, Dict[str, Any]]:
+        range_matched, quantity, recipients = user_config.get_matching_range(gift_price, total_amount)
         return (True, {"quantity": quantity, "recipients": recipients}) if range_matched else (
             False, {
                 "range_error": True,
@@ -41,10 +42,10 @@ class GiftProcessor:
         )
 
 
-async def process_new_gift(app: Client, gift_data: Dict[str, Any]) -> None:
+async def process_new_gift(app: Client, gift_data: Dict[str, Any], user_config: UserConfig) -> None:
     gift_id = gift_data.get("id")
 
-    is_eligible, processing_data = await GiftProcessor.evaluate_gift(gift_data)
+    is_eligible, processing_data = await GiftProcessor.evaluate_gift(gift_data, user_config)
 
     return await send_notification(app, gift_id, **processing_data) if not is_eligible and processing_data else \
         await _distribute_gifts(app, gift_id, processing_data.get("quantity", 1), processing_data.get("recipients", []))
@@ -62,4 +63,3 @@ async def _distribute_gifts(app: Client, gift_id: int, quantity: int, recipients
         await asyncio.sleep(0.5)
 
 
-process_gift = process_new_gift
