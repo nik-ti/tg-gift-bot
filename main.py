@@ -22,24 +22,22 @@ class Application:
         set_window_title(app_info)
         display_title(app_info, get_language_display(config.LANGUAGE))
 
-        # Create main bot client for handling Telegram commands
-        main_bot = Client(
-                name=config.SESSION,
-                api_id=config.API_ID,
-                api_hash=config.API_HASH,
-                phone_number=config.PHONE_NUMBER
+        # Create Bot API client for handling Telegram commands
+        bot_api_client = Client(
+            name="main_bot",
+            bot_token=config.BOT_TOKEN
         )
         
         # Setup Telegram command handlers
-        setup_handlers(main_bot)
+        setup_handlers(bot_api_client)
         
-        async with main_bot:
-            info("Main bot started - ready to accept commands")
+        async with bot_api_client:
+            info("Bot API client started - ready to accept commands")
             
             # Start all active user bots
             await multi_user_manager.start_all_active_users()
             
-            # Keep the main bot running
+            # Keep the bot running
             try:
                 await asyncio.Event().wait()  # Run indefinitely
             except asyncio.CancelledError:

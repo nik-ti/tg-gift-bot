@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from typing import Any, Callable, Dict, List, Tuple
+from pathlib import Path
 
 from pyrogram import Client, types
 
@@ -13,16 +14,22 @@ from app.core.user_config import UserConfig
 
 class GiftDetector:
     @staticmethod
-    async def load_gift_history() -> Dict[int, dict]:
+    async def load_gift_history(user_id: int) -> Dict[int, dict]:
+        """Load gift history for a specific user."""
+        history_file = Path(f"data/history/user_{user_id}_history.json")
         try:
-            with config.DATA_FILEPATH.open("r", encoding='utf-8') as file:
+            with history_file.open("r", encoding='utf-8') as file:
                 return {gift["id"]: gift for gift in json.load(file)}
         except FileNotFoundError:
             return {}
 
     @staticmethod
-    async def save_gift_history(gifts: List[dict]) -> None:
-        with config.DATA_FILEPATH.open("w", encoding='utf-8') as file:
+    async def save_gift_history(gifts: List[dict], user_id: int) -> None:
+        """Save gift history for a specific user."""
+        history_file = Path(f"data/history/user_{user_id}_history.json")
+        history_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with history_file.open("w", encoding='utf-8') as file:
             json.dump(gifts, file, indent=4, default=types.Object.default, ensure_ascii=False)
 
     @staticmethod
@@ -58,8 +65,10 @@ class GiftDetector:
 
 class GiftMonitor:
     @staticmethod
-    async def run_detection_loop(app: Client, callback: Callable) -> None:
+    async def run_detection_loop(app: Client, callback: Callable, user_config: UserConfig) -> None:
+        """Run gift detection loop for a specific user."""
         animation_counter = 0
+        user_id = user_config.user_id
 
         while True:
             animation_counter = (animation_counter + 1) % 4
@@ -68,7 +77,7 @@ class GiftMonitor:
 
             app.is_connected or await app.start()
 
-            old_gifts = await GiftDetector.load_gift_history()
+            old_gifts = await GiftDetector.load_gift_history(user_id)
             current_gifts, gift_ids = await GiftDetector.fetch_current_gifts(app)
 
             new_gifts = {
@@ -76,35 +85,24 @@ class GiftMonitor:
                 if gift_id not in old_gifts
             }
 
-            # Extract user_config from callback if it's a wrapped function
-            user_config = getattr(callback, '__self__', None)
-            if hasattr(callback, '__wrapped__'):
-                user_config = callback.__wrapped__.__self__
-            
             new_gifts and await GiftMonitor._process_new_gifts(app, new_gifts, gift_ids, callback, user_config)
 
-            await GiftDetector.save_gift_history(list(current_gifts.values()))
-            # Use a default interval if user_config is not available
-            interval = user_config.interval if user_config else 15.0
-            await asyncio.sleep(interval)
+            await GiftDetector.save_gift_history(list(current_gifts.values()), user_id)
+            await asyncio.sleep(user_config.interval)
 
     @staticmethod
-    async def _process_new_gifts(app: Client, new_gifts: Dict[int, dict],
-                                 gift_ids: List[int], callback: Callable, user_config: UserConfig = None) -> None:
+    async def _process_new_gifts(app: Client, new_gifts: Dict[int, dict], gift_ids: List[int], 
+                                 callback: Callable, user_config: UserConfig) -> None:
         info(f'{t("console.new_gifts")} {len(new_gifts)}')
 
         skip_counts = {'sold_out_count': 0, 'non_limited_count': 0, 'non_upgradable_count': 0}
 
-        if user_config:
-            for gift_data in new_gifts.values():
-                gift_skips = GiftDetector.categorize_skipped_gifts(gift_data, user_config)
-                for key, value in gift_skips.items():
-                    skip_counts[key] += value
+        for gift_data in new_gifts.values():
+            gift_skips = GiftDetector.categorize_skipped_gifts(gift_data, user_config)
+            for key, value in gift_skips.items():
+                skip_counts[key] += value
 
-            prioritized_gifts = GiftDetector.prioritize_gifts(new_gifts, gift_ids, user_config)
-        else:
-            # Fallback for cases where user_config is not available
-            prioritized_gifts = list(new_gifts.items())
+        prioritized_gifts = GiftDetector.prioritize_gifts(new_gifts, gift_ids, user_config)
 
         for gift_id, gift_data in prioritized_gifts:
             gift_data['id'] = gift_id

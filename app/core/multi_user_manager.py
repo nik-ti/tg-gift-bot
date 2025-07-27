@@ -127,7 +127,7 @@ class MultiUserManager:
             async def process_gift_with_config(app: Client, gift_data: Dict):
                 return await process_gift(app, gift_data, user_config)
             
-            await gift_monitoring(client, process_gift_with_config)
+            await gift_monitoring(client, process_gift_with_config, user_config)
         except asyncio.CancelledError:
             info(f"Monitoring cancelled for user {user_config.user_id}")
         except Exception as ex:

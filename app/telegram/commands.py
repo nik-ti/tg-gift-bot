@@ -5,12 +5,14 @@ import json
 
 from app.database import UserConfigManager, AuthManager
 from app.core.user_config import UserConfig
+from app.core.multi_user_manager import MultiUserManager
 from app.utils.logger import info, error
 from data.config import t
 
 # Global managers
 user_config_manager = UserConfigManager()
 auth_manager = AuthManager()
+multi_user_manager = MultiUserManager()
 
 # Store user setup states
 user_setup_states: Dict[int, Dict[str, Any]] = {}
@@ -256,12 +258,14 @@ async def handle_start_bot(client: Client, message: Message):
     success = await user_config_manager.set_user_active_status(user_id, True)
     
     if success:
+        # Start the actual bot instance for this user
+        await multi_user_manager.start_user_bot(user_id, config_data)
+        
         await message.reply(
             "🟢 **Bot Started!**\n\n"
             "Your gift buying bot is now active and will start monitoring for new gifts.\n"
             "Use `/stop` to stop the bot."
         )
-        # TODO: Start the actual bot instance for this user
     else:
         await message.reply("❌ Failed to start bot. Please try again.")
 
@@ -277,12 +281,14 @@ async def handle_stop_bot(client: Client, message: Message):
     success = await user_config_manager.set_user_active_status(user_id, False)
     
     if success:
+        # Stop the actual bot instance for this user
+        await multi_user_manager.stop_user_bot(user_id)
+        
         await message.reply(
             "🔴 **Bot Stopped!**\n\n"
             "Your gift buying bot has been deactivated.\n"
             "Use `/start_bot` to start it again."
         )
-        # TODO: Stop the actual bot instance for this user
     else:
         await message.reply("❌ Failed to stop bot. Please try again.")
 

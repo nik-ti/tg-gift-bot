@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, handlers
 from pyrogram.types import Message
 from .commands import (
     handle_start, handle_setup, handle_my_settings, handle_stop_bot,
@@ -11,16 +11,16 @@ def setup_handlers(app: Client):
     """Setup all Telegram message handlers."""
     
     # Basic commands
-    app.add_handler(filters.command("start") & filters.private, handle_start)
-    app.add_handler(filters.command("setup") & filters.private, handle_setup)
-    app.add_handler(filters.command("settings") & filters.private, handle_my_settings)
-    app.add_handler(filters.command("stop") & filters.private, handle_stop_bot)
-    app.add_handler(filters.command("start_bot") & filters.private, handle_start_bot)
+    app.add_handler(handlers.MessageHandler(handle_start, filters.command("start") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_setup, filters.command("setup") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_my_settings, filters.command("settings") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_stop_bot, filters.command("stop") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_start_bot, filters.command("start_bot") & filters.private))
     
     # Admin commands
-    app.add_handler(filters.command("admin_users") & filters.private, handle_admin_users)
-    app.add_handler(filters.command("admin_add") & filters.private, handle_admin_add_user)
-    app.add_handler(filters.command("admin_remove") & filters.private, handle_admin_remove_user)
+    app.add_handler(handlers.MessageHandler(handle_admin_users, filters.command("admin_users") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_admin_add_user, filters.command("admin_add") & filters.private))
+    app.add_handler(handlers.MessageHandler(handle_admin_remove_user, filters.command("admin_remove") & filters.private))
     
     # Setup conversation handler
-    app.add_handler(filters.text & filters.private, handle_setup_step)
+    app.add_handler(handlers.MessageHandler(handle_setup_step, filters.text & filters.private))

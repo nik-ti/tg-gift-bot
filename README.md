@@ -8,10 +8,11 @@
 
 ## ✨ Features
 
-- **👥 Multi-User Support**: Multiple users can configure and run their own bots
-- **💬 Telegram Interface**: Complete setup and management through Telegram commands
+- **🤖 Telegram Bot Interface**: Users interact with a proper Telegram bot (created via @BotFather)
+- **👥 Multi-User Support**: Multiple users can configure and run their own gift-buying bots
+- **💬 Complete Telegram Interface**: Setup and management through bot commands
 - **🔐 User Authorization**: Admin-controlled access with user management
-- **🤖 Individual Bot Instances**: Each user gets their own monitoring and purchasing bot
+- **🔄 Individual Bot Instances**: Each user gets their own monitoring and purchasing bot
 - **⚙️ Per-User Configuration**: Individual settings for price ranges, recipients, and preferences
 - **🎯 Smart Prioritization**: Prioritizes rare gifts (low supply) within price ranges
 - **💰 Balance Management**: Makes partial purchases when balance is insufficient
@@ -27,6 +28,13 @@ cd Gifts-Buyer
 pip install -r requirements.txt
 ```
 
+## 🤖 Create Your Telegram Bot
+
+1. Open Telegram and search for `@BotFather`
+2. Send `/newbot` and follow the instructions
+3. Choose a name and username for your bot
+4. Copy the bot token that BotFather provides
+
 ## 🗄️ Database Setup
 
 This bot uses Supabase for storing user configurations. You need to:
@@ -35,7 +43,19 @@ This bot uses Supabase for storing user configurations. You need to:
 2. Copy `.env.example` to `.env` and fill in your Supabase credentials
 3. Run the database migrations (tables will be created automatically)
 
-Edit `config.ini` with your main bot settings and run:
+## ⚙️ Configuration
+
+Edit `config.ini` with your bot settings:
+
+```ini
+[Telegram]
+BOT_TOKEN = your_bot_token_from_botfather
+
+[Bot]
+LANGUAGE = EN  # Interface language (EN/RU)
+```
+
+Then run:
 
 ```bash
 python main.py
@@ -43,7 +63,7 @@ python main.py
 
 ## 🐳 Docker Usage
 
-You can run the bot via Docker. The process includes one-time Telegram authorization and background launch.
+You can run the bot via Docker:
 
 ### 1. Build the Docker image
 
@@ -51,23 +71,16 @@ You can run the bot via Docker. The process includes one-time Telegram authoriza
 docker compose build
 ```
 
-### 2. Run the container for Telegram login (one-time setup)
+### 2. Set up your configuration
 
-```bash
-docker compose run --rm gift-buyer
-```
+- Copy `.env.example` to `.env` and add your Supabase credentials
+- Update `config.ini` with your bot token
 
-Follow the prompts to complete Telegram authorization. Your session will be saved in the `./data/` directory.
-
-> ℹ️ This step is only required once — until your session expires or you change accounts.
-
-### 3. Start the bot in background mode
+### 3. Start the bot
 
 ```bash
 docker compose up -d
 ```
-
-The bot will start using the saved session and configuration.
 
 ### 4. Stop the bot (when needed)
 
@@ -75,27 +88,9 @@ The bot will start using the saved session and configuration.
 docker compose down
 ```
 
-## ⚙️ Configuration
-
-### Main Bot Settings (config.ini)
-
-The `config.ini` now only contains settings for the main bot that handles Telegram commands:
-
-```ini
-[Telegram]
-API_ID = your_main_bot_api_id          # From https://my.telegram.org/apps
-API_HASH = your_main_bot_api_hash      # From https://my.telegram.org/apps  
-PHONE_NUMBER = +1234567890             # Main bot phone number
-
-[Bot]
-LANGUAGE = EN                          # Main bot interface language (EN/RU)
-```
-
-### User Configuration via Telegram
-
-Users configure their individual bots through Telegram commands:
-
 ## 📱 Telegram Commands
+
+Users interact with your bot through these commands:
 
 ### For Users:
 - `/start` - Welcome message and available commands
@@ -111,8 +106,13 @@ Users configure their individual bots through Telegram commands:
 
 ## 🔧 Setup Process
 
-1. **Admin Setup**: Add authorized users using admin commands
-2. **User Setup**: Authorized users run `/setup` to configure their bot:
+1. **Create and Start Your Bot**: 
+   - Create bot with @BotFather
+   - Configure `config.ini` and start the service
+   
+2. **Admin Setup**: Add authorized users using admin commands
+
+3. **User Setup**: Authorized users run `/setup` to configure their bot:
    - API ID and API Hash (from https://my.telegram.org/apps)
    - Phone number
    - Notification channel
@@ -120,7 +120,8 @@ Users configure their individual bots through Telegram commands:
    - Language preference
    - Gift ranges (price ranges, supply limits, quantities, recipients)
    - Additional options (upgradable only, prioritize low supply)
-3. **Start Bot**: Users run `/start_bot` to activate their gift buying bot
+   
+4. **Start Bot**: Users run `/start_bot` to activate their gift buying bot
 
 ## 🎯 Gift Ranges Format
 
@@ -133,6 +134,15 @@ During setup, users define gift ranges in this format:
 - `5001-50000:50000:5:987654321` - Expensive gifts, 5 copies
 
 Multiple ranges separated by semicolons (`;`)
+
+## 🏗️ Architecture
+
+The bot uses a hybrid architecture:
+
+- **Bot API Client**: Handles user interactions via Telegram Bot API
+- **User Clients**: Individual Pyrogram user clients for gift purchasing
+- **Database**: Supabase for storing user configurations and authorization
+- **Multi-User Manager**: Orchestrates multiple user bot instances
 
 ## 💰 Smart Balance Management
 
@@ -147,12 +157,14 @@ Example:
 
 ## 📝 Tips
 
-- **For Admins**: Carefully manage authorized users to prevent abuse
+- **Bot Setup**: Create a professional bot name and description via @BotFather
+- **Admin Management**: Carefully control authorized users to prevent abuse
 - **For Users**: Keep balance 2-3x higher than your most expensive range
 - **Setup**: Test with small ranges first before scaling up
 - **Monitoring**: Enable notifications to track bot activity
 - **Hosting**: Run on VPS for 24/7 operation
 - **Security**: Each user's session and data are isolated
+- **Scaling**: The architecture supports hundreds of concurrent users
 
 ---
 

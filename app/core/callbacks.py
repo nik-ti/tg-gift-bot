@@ -42,7 +42,8 @@ class GiftProcessor:
         )
 
 
-async def process_new_gift(app: Client, gift_data: Dict[str, Any], user_config: UserConfig) -> None:
+async def process_gift(app: Client, gift_data: Dict[str, Any], user_config: UserConfig) -> None:
+    """Process a new gift for a specific user configuration."""
     gift_id = gift_data.get("id")
 
     is_eligible, processing_data = await GiftProcessor.evaluate_gift(gift_data, user_config)
