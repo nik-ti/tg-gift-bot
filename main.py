@@ -29,7 +29,9 @@ class Application:
         # Create Bot API client for handling Telegram commands
         bot_api_client = Client(
             name="main_bot",
-            bot_token=config.BOT_TOKEN
+            bot_token=config.BOT_TOKEN,
+            api_id=config.API_ID,
+            api_hash=config.API_HASH
         )
         
         # Setup Telegram command handlers
