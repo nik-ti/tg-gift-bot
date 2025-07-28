@@ -1,7 +1,7 @@
 import configparser
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from app.utils.localization import localization
 from app.utils.logger import error
